@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Model Deployment Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .info {
+            background: #f0f0ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+
+        code {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .api-endpoint {
+            color: #50fa7b;
+            font-weight: bold;
+        }
+
+        ol {
+            margin-left: 20px;
+        }
+
+        li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .note {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CV Model Deployment Platform</h1>
+        <p class="subtitle">API-based platform for deploying and running computer vision models</p>
+
+        <div class="section">
+            <h2>Platform Overview</h2>
+            <p>This platform allows you to:</p>
+            <ul>
+                <li>Upload custom CV models (predict.py + requirements.txt)</li>
+                <li>Automatically build Docker images from your code</li>
+                <li>Run inference jobs on uploaded images</li>
+                <li>Retrieve processed results via presigned URLs</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Quick Start Guide</h2>
+            <div class="note">
+                <strong>Note:</strong> This is an API-based platform. Use curl or any HTTP client to interact with the endpoints.
+                API Base URL: <code>http://localhost:8000</code>
+            </div>
+
+            <h3>1. Register a User</h3>
+            <pre>curl -X POST http://localhost:8000/api/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "demo",
+    "email": "demo@example.com",
+    "password": "password123"
+  }'</pre>
+
+            <h3>2. Login to Get Token</h3>
+            <pre>curl -X POST "http://localhost:8000/api/users/login?username=demo&password=password123"</pre>
+            <p>Save the <code>access_token</code> from the response.</p>
+
+            <h3>3. Create a Model</h3>
+            <pre>curl -X POST http://localhost:8000/api/models/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Grayscale Converter",
+    "description": "Converts images to grayscale",
+    "is_public": true
+  }'</pre>
+
+            <h3>4. Create Model Version & Upload Package</h3>
+            <pre>curl -X POST http://localhost:8000/api/models/versions \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "MODEL_ID",
+    "version_number": "v1.0"
+  }'</pre>
+
+            <p>Use the returned <code>upload_url</code> to upload your model zip:</p>
+            <pre>curl -X PUT "PRESIGNED_UPLOAD_URL" \
+  --upload-file model.zip</pre>
+
+            <h3>5. Trigger Build</h3>
+            <pre>curl -X POST http://localhost:8000/api/models/versions/VERSION_ID/build \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+
+            <h3>6. Check Build Status</h3>
+            <pre>curl -X GET http://localhost:8000/api/models/versions/VERSION_ID \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+
+            <h3>7. Create Inference Job</h3>
+            <pre>curl -X POST http://localhost:8000/api/jobs/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version_id": "VERSION_ID"
+  }'</pre>
+
+            <h3>8. Upload Input Image</h3>
+            <pre>curl -X PUT "JOB_UPLOAD_URL" \
+  --upload-file input.png</pre>
+
+            <h3>9. Run Inference</h3>
+            <pre>curl -X POST http://localhost:8000/api/jobs/JOB_ID/run \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+
+            <h3>10. Get Results</h3>
+            <pre>curl -X GET http://localhost:8000/api/jobs/JOB_ID/outputs \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+
+            <p>Download output using the returned presigned URL.</p>
+        </div>
+
+        <div class="section">
+            <h2>Model Package Format</h2>
+            <p>Your model package should be a ZIP file containing:</p>
+            <ul>
+                <li><code>predict.py</code> - Must define a <code>run(input_path, output_dir)</code> function</li>
+                <li><code>requirements.txt</code> - Python dependencies</li>
+                <li>Optional: model weights, config files, etc.</li>
+            </ul>
+
+            <div class="info">
+                <strong>Example predict.py:</strong>
+                <pre>from PIL import Image
+import os
+
+def run(input_path: str, output_dir: str) -> dict:
+    img = Image.open(input_path)
+    grayscale = img.convert('L')
+    grayscale.save(os.path.join(output_dir, "output.png"))
+    return {"status": "success"}</pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Available Endpoints</h2>
+            <ul>
+                <li><span class="api-endpoint">POST</span> <code>/api/users/register</code> - Register user</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/users/login</code> - Login</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/models/</code> - Create model</li>
+                <li><span class="api-endpoint">GET</span> <code>/api/models/</code> - List models</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/models/versions</code> - Create version</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/models/versions/{id}/build</code> - Trigger build</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/jobs/</code> - Create job</li>
+                <li><span class="api-endpoint">POST</span> <code>/api/jobs/{id}/run</code> - Run inference</li>
+                <li><span class="api-endpoint">GET</span> <code>/api/jobs/{id}/outputs</code> - Get results</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

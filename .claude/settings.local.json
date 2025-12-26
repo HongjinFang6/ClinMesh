@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(./test-workflow.sh)",
+      "Bash(python3:*)",
+      "Bash(cat:*)",
+      "Bash(/tmp/test_upload.sh:*)",
+      "Bash(/tmp/test_manual_upload.sh)",
+      "Bash(/tmp/test_with_host_header.sh)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(./node_modules/.bin/tailwindcss:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(python cleanup_orphaned_versions.py:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyMGUzNTJiNi1kODVjLTQ5YjAtOWJiNC1jODA3OTU2ZjM5OTQiLCJleHAiOjE3NjczMDk2NzN9.coZ9EuBnK89igmMoVgK-Eu75evVACDLjJvipEqYLqtg\")"
+    ]
+  }
+}
