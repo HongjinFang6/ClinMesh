@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
-from app.models import ModelVersionStatus, JobStatus
+from app.models import ModelVersionStatus, JobStatus, UserRole
 
 
 # User schemas
@@ -10,12 +10,14 @@ class UserCreate(BaseModel):
     username: str
     email: EmailStr
     password: str
+    role: UserRole
 
 
 class UserResponse(BaseModel):
     id: UUID
     username: str
     email: str
+    role: UserRole
     created_at: datetime
 
     class Config:
@@ -45,6 +47,8 @@ class ModelResponse(BaseModel):
     owner_id: Optional[UUID]
     owner_username: Optional[str] = None  # Owner's username
     is_public: bool
+    before_image_path: Optional[str] = None
+    after_image_path: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -89,12 +93,14 @@ class BuildTriggerResponse(BaseModel):
 # Job schemas
 class JobCreate(BaseModel):
     version_id: UUID
+    name: Optional[str] = None
 
 
 class JobResponse(BaseModel):
     id: UUID
     version_id: UUID
     user_id: Optional[UUID]
+    name: Optional[str]
     status: JobStatus
     input_path: Optional[str]
     output_paths: Optional[str]
@@ -115,3 +121,39 @@ class JobOutputResponse(BaseModel):
     job_id: UUID
     status: JobStatus
     output_urls: List[str]
+
+
+# Batch job schemas
+class BatchJobCreate(BaseModel):
+    version_id: UUID
+    image_count: int
+    filenames: List[str]
+    name: Optional[str] = None  # Base name for the batch job
+
+
+class BatchJobUploadUrl(BaseModel):
+    filename: str
+    url: str
+
+
+class BatchJobResponse(BaseModel):
+    job_id: UUID
+    upload_urls: List[BatchJobUploadUrl]
+
+
+# Multiple jobs schemas
+class MultipleJobsCreate(BaseModel):
+    version_id: UUID
+    filenames: List[str]
+    name_prefix: Optional[str] = None  # Prefix for auto-generated names
+
+
+class SingleJobInfo(BaseModel):
+    job_id: UUID
+    upload_url: str
+    filename: str
+    name: Optional[str]  # Auto-generated name for this job
+
+
+class BatchStatusRequest(BaseModel):
+    job_ids: List[UUID]

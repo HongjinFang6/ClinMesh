@@ -34,10 +34,15 @@ export const JobsPage = () => {
             <Link to={`/jobs/${job.id}`}>
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="font-semibold text-lg">Job {job.id.slice(0, 8)}</h3>
+                  <h3 className="font-semibold text-lg">
+                    {job.name || `Job ${job.id.slice(0, 8)}`}
+                  </h3>
                   <p className="text-sm text-gray-600">
                     Created: {new Date(job.created_at).toLocaleString()}
                   </p>
+                  {job.name && (
+                    <p className="text-xs text-gray-500">ID: {job.id.slice(0, 8)}</p>
+                  )}
                 </div>
                 <StatusBadge status={job.status} />
               </div>

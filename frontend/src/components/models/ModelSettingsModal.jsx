@@ -14,6 +14,10 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [beforeImage, setBeforeImage] = useState(null);
+  const [afterImage, setAfterImage] = useState(null);
+  const [isUploadingBefore, setIsUploadingBefore] = useState(false);
+  const [isUploadingAfter, setIsUploadingAfter] = useState(false);
 
   const handleUpdate = async (e) => {
     e.preventDefault();
@@ -41,6 +45,72 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to delete model');
       setIsDeleting(false);
+    }
+  };
+
+  const handleBeforeImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingBefore(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:8000/api/models/${model.id}/demo/upload-before`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setBeforeImage(file);
+      alert('Before image uploaded successfully!');
+    } catch (err) {
+      setError('Failed to upload before image');
+    } finally {
+      setIsUploadingBefore(false);
+    }
+  };
+
+  const handleAfterImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploadingAfter(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(`http://localhost:8000/api/models/${model.id}/demo/upload-after`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      setAfterImage(file);
+      alert('After image uploaded successfully!');
+    } catch (err) {
+      setError('Failed to upload after image');
+    } finally {
+      setIsUploadingAfter(false);
     }
   };
 
@@ -106,6 +176,75 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
                   <label htmlFor="is_public" className="ml-2 text-sm text-gray-700">
                     Make this model public
                   </label>
+                </div>
+
+                <div className="border-t border-gray-200 pt-4">
+                  <h3 className="text-lg font-semibold mb-3">Demo Images (Before & After)</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Upload before and after images to demonstrate what your model does
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Before Image */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Before Image
+                      </label>
+                      {model.before_image_path && (
+                        <img
+                          src={`http://localhost:8000/api/models/${model.id}/demo/before`}
+                          alt="Before"
+                          className="w-full h-40 object-cover rounded-lg mb-2 border border-gray-200"
+                        />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleBeforeImageUpload}
+                        disabled={isUploadingBefore}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-primary-50 file:text-primary-700
+                          hover:file:bg-primary-100
+                          disabled:opacity-50"
+                      />
+                      {isUploadingBefore && (
+                        <p className="text-sm text-gray-500 mt-1">Uploading...</p>
+                      )}
+                    </div>
+
+                    {/* After Image */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        After Image
+                      </label>
+                      {model.after_image_path && (
+                        <img
+                          src={`http://localhost:8000/api/models/${model.id}/demo/after`}
+                          alt="After"
+                          className="w-full h-40 object-cover rounded-lg mb-2 border border-gray-200"
+                        />
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAfterImageUpload}
+                        disabled={isUploadingAfter}
+                        className="block w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded file:border-0
+                          file:text-sm file:font-semibold
+                          file:bg-primary-50 file:text-primary-700
+                          hover:file:bg-primary-100
+                          disabled:opacity-50"
+                      />
+                      {isUploadingAfter && (
+                        <p className="text-sm text-gray-500 mt-1">Uploading...</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex space-x-3">

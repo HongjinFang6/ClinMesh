@@ -35,7 +35,10 @@ export const Navbar = () => {
             )}
           </div>
           {isAuthenticated && (
-            <div className="flex items-center">
+            <div className="flex items-center space-x-4">
+              <Link to="/profile" className="text-gray-700 hover:text-primary-500 px-3 py-2">
+                Profile
+              </Link>
               <Button onClick={logout} variant="secondary">
                 Logout
               </Button>

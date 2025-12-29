@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
-from app.models import User
+from app.models import User, UserRole
 from app.schemas import TokenData
 from uuid import UUID
 
@@ -64,3 +64,15 @@ async def get_current_user(
             detail="User not found",
         )
     return user
+
+
+async def get_developer_user(
+    current_user: User = Depends(get_current_user)
+) -> User:
+    """Dependency to verify that the current user is a developer."""
+    if current_user.role != UserRole.DEVELOPER:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only developers can perform this action. Doctors can only use models, not upload them.",
+        )
+    return current_user

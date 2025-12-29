@@ -1,4 +1,5 @@
 import apiClient from './client';
+import { getToken } from '../utils/storage';
 
 export const createModel = async (modelData) => {
   const response = await apiClient.post('/api/models/', modelData);
@@ -68,10 +69,16 @@ export const uploadToPresignedUrl = async (uploadUrl, file) => {
   const formData = new FormData();
   formData.append('file', file);
 
+  // Get auth token
+  const token = getToken();
+
   // Upload to API proxy endpoint
   const fullUrl = uploadUrl.startsWith('http') ? uploadUrl : `http://localhost:8000${uploadUrl}`;
   const response = await fetch(fullUrl, {
     method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    },
     body: formData
   });
 
@@ -85,4 +92,19 @@ export const uploadToPresignedUrl = async (uploadUrl, file) => {
   }
 
   return response;
+};
+
+export const favoriteModel = async (modelId) => {
+  const response = await apiClient.post(`/api/models/${modelId}/favorite`);
+  return response.data;
+};
+
+export const unfavoriteModel = async (modelId) => {
+  const response = await apiClient.delete(`/api/models/${modelId}/favorite`);
+  return response.data;
+};
+
+export const getFavoriteModels = async () => {
+  const response = await apiClient.get('/api/models/favorites/list');
+  return response.data;
 };

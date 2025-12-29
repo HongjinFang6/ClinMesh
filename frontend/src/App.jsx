@@ -6,12 +6,21 @@ import { Layout } from './components/layout/Layout';
 
 import { LandingPage } from './pages/LandingPage';
 import { Dashboard } from './pages/Dashboard';
+import { DoctorDashboard } from './pages/DoctorDashboard';
 import { ModelsPage } from './pages/ModelsPage';
 import { PublicModelsPage } from './pages/PublicModelsPage';
 import { ModelDetailPage } from './pages/ModelDetailPage';
 import { InferencePage } from './pages/InferencePage';
 import { JobsPage } from './pages/JobsPage';
 import { JobDetailPage } from './pages/JobDetailPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { FavoritedModelsPage } from './pages/FavoritedModelsPage';
+import { useAuth } from './hooks/useAuth';
+
+const DashboardRouter = () => {
+  const { user } = useAuth();
+  return user?.role === 'DOCTOR' ? <DoctorDashboard /> : <Dashboard />;
+};
 
 function App() {
   return (
@@ -25,7 +34,29 @@ function App() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Dashboard />
+                  <DashboardRouter />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ProfilePage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/favorites"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <FavoritedModelsPage />
                 </Layout>
               </ProtectedRoute>
             }

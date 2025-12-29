@@ -497,40 +497,276 @@ curl -o output_image.png "$OUTPUT_URL"
 
 ## Model Package Format
 
-Your model package must be a ZIP file containing:
+Your model package must be a **ZIP file** containing your model code and dependencies. The platform will automatically build a Docker image from your package.
 
-### Required Files
+### ⚠️ Critical Requirements
 
-1. **predict.py** - Must define a `run` function:
+**Your ZIP file MUST contain:**
+
+1. ✅ **predict.py** - Main prediction script (required)
+2. ✅ **requirements.txt** - Python dependencies (required)
+3. ❌ **NO Dockerfile** - The platform generates this automatically
+4. ❌ **NO nested folders** - Files must be at the root of the ZIP
+
+### File Structure
+
+```
+model.zip
+├── predict.py          # ✅ Required: Your model code
+├── requirements.txt    # ✅ Required: Python packages
+└── [optional files]    # Model weights, config files, etc.
+```
+
+**Invalid structure (will fail):**
+```
+model.zip
+└── my-model/          # ❌ Nested folder - files must be at root
+    ├── predict.py
+    └── requirements.txt
+```
+
+### 1. predict.py Requirements
+
+Your `predict.py` file **must** define a function called `run` with this exact signature:
 
 ```python
 def run(input_path: str, output_dir: str) -> dict:
     """
+    Main entry point for inference.
+
     Args:
-        input_path: Path to input image file
-        output_dir: Directory to write output files
+        input_path (str): Absolute path to the input image file
+                         Examples: /workspace/in/image.jpg
+        output_dir (str): Absolute path to output directory
+                         Write all output files here
+                         Examples: /workspace/out/result.png
 
     Returns:
-        dict: JSON-serializable metadata
+        dict: JSON-serializable metadata about the results
+              This will be stored in the database
+              Examples: {"status": "success", "num_objects": 5}
+
+    Raises:
+        Exception: Any unhandled exceptions will mark the job as FAILED
     """
-    # Your model code here
-    # Read from input_path
-    # Write outputs to output_dir
-    # Return metadata
-    pass
+    # 1. Read input image
+    from PIL import Image
+    img = Image.open(input_path)
+
+    # 2. Process the image (your model logic here)
+    result = process_image(img)
+
+    # 3. Save outputs to output_dir
+    output_path = os.path.join(output_dir, "output.png")
+    result.save(output_path)
+
+    # 4. Return JSON-serializable metadata
+    return {
+        "status": "success",
+        "output_files": ["output.png"],
+        "processing_time_ms": 123
+    }
 ```
 
-2. **requirements.txt** - Python dependencies:
+**Important Rules:**
 
-```
+- ✅ Function name must be exactly `run`
+- ✅ Must accept `input_path` and `output_dir` as string parameters
+- ✅ Must return a Python dict (will be converted to JSON)
+- ✅ Must write output files to `output_dir` (not hardcoded paths)
+- ✅ Can import any packages listed in `requirements.txt`
+- ✅ Can load model weights from the same directory as `predict.py`
+- ❌ Cannot access the internet (containers run with `--network=none`)
+- ❌ Cannot write outside of `output_dir`
+- ❌ Cannot take longer than 60 seconds (will timeout)
+
+### 2. requirements.txt Requirements
+
+List all Python packages your model needs, one per line:
+
+```txt
+# Image processing
 Pillow==10.2.0
 numpy==1.26.3
-# Add your dependencies here
+
+# Deep learning (example)
+torch==2.1.0
+torchvision==0.16.0
+
+# Computer vision
+opencv-python==4.8.1.78
+
+# Other dependencies
+scikit-image==0.22.0
 ```
+
+**Important Rules:**
+
+- ✅ Use pinned versions (e.g., `Pillow==10.2.0`, not `Pillow`)
+- ✅ One package per line
+- ✅ Comments are allowed (lines starting with `#`)
+- ✅ Can include Git URLs or local paths if needed
+- ❌ Don't include system packages (apt-get) - Python only
+- ⚠️ Large packages (PyTorch, TensorFlow) will increase build time
+
+**Common Packages:**
+
+```txt
+# Lightweight image processing
+Pillow==10.2.0
+numpy==1.26.3
+
+# For PyTorch models
+torch==2.1.0
+torchvision==0.16.0
+
+# For TensorFlow models
+tensorflow==2.15.0
+
+# For scikit-learn models
+scikit-learn==1.3.2
+scikit-image==0.22.0
+
+# OpenCV
+opencv-python==4.8.1.78
+```
+
+### 3. Optional Files
+
+You can include additional files in your ZIP:
+
+```
+model.zip
+├── predict.py              # ✅ Required
+├── requirements.txt        # ✅ Required
+├── model_weights.pth       # ✅ Optional: Model weights
+├── config.json             # ✅ Optional: Configuration
+├── preprocessing.py        # ✅ Optional: Helper modules
+└── utils.py                # ✅ Optional: Utility functions
+```
+
+**Accessing optional files in predict.py:**
+
+```python
+import os
+
+def run(input_path: str, output_dir: str) -> dict:
+    # All files are in the same directory as predict.py
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # Load model weights
+    weights_path = os.path.join(script_dir, "model_weights.pth")
+    model = load_model(weights_path)
+
+    # Load config
+    config_path = os.path.join(script_dir, "config.json")
+    with open(config_path) as f:
+        config = json.load(f)
+
+    # ... rest of your code
+```
+
+### 4. Creating the ZIP File
+
+**Option 1: Command Line (Recommended)**
+
+```bash
+cd your-model-directory
+zip -r model.zip predict.py requirements.txt model_weights.pth
+
+# Verify contents (files should be at root, not in a subfolder)
+unzip -l model.zip
+```
+
+**Option 2: Python Script**
+
+```python
+import zipfile
+
+files_to_zip = [
+    'predict.py',
+    'requirements.txt',
+    'model_weights.pth',  # Optional
+    'config.json'         # Optional
+]
+
+with zipfile.ZipFile('model.zip', 'w') as zipf:
+    for file in files_to_zip:
+        zipf.write(file, arcname=file)  # arcname ensures files are at root
+```
+
+**Option 3: macOS Finder / Windows Explorer**
+
+⚠️ **WARNING**: Right-clicking and selecting "Compress" may create nested folders. Always verify with `unzip -l model.zip`
+
+### 5. Testing Your Package Locally
+
+Before uploading, test your package:
+
+```bash
+# 1. Extract to temp directory
+mkdir test_model
+cd test_model
+unzip ../model.zip
+
+# 2. Verify structure
+ls -la
+# Should show: predict.py, requirements.txt (at root level)
+
+# 3. Test the run function
+python3 << EOF
+from predict import run
+result = run("test_image.jpg", "outputs/")
+print(result)
+EOF
+```
+
+### 6. Size Limits and Best Practices
+
+**Size Limits:**
+
+- **ZIP file**: No hard limit, but <500MB recommended
+- **Model weights**: Store large models externally and download in `predict.py`
+- **Dependencies**: Minimal dependencies = faster builds
+
+**Best Practices:**
+
+1. **Pin all versions** to ensure reproducibility
+2. **Test locally** before uploading
+3. **Use virtual environments** to generate clean `requirements.txt`:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate
+   pip install pillow numpy  # only what you need
+   pip freeze > requirements.txt
+   ```
+4. **Minimize dependencies** - only include what you actually use
+5. **Handle errors gracefully** - return meaningful error messages in the dict
+6. **Write logs** - use `print()` statements (visible in job logs)
+7. **Test edge cases** - empty images, corrupted files, unusual dimensions
+
+### Common Errors and Solutions
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| "predict.py not found" | Nested folder in ZIP | Ensure files are at ZIP root, not in subfolder |
+| "Module 'run' not found" | Wrong function name | Function must be named exactly `run` |
+| "No module named 'X'" | Missing from requirements.txt | Add package to requirements.txt |
+| "Timeout exceeded" | Processing > 60s | Optimize model or increase timeout (backend config) |
+| "No output files found" | Not writing to output_dir | Ensure you write files to `output_dir` parameter |
 
 ### Example Model
 
-See `example-model/` directory for a complete working example.
+See `example-model/` directory for a complete working example:
+
+```bash
+cd example-model
+cat predict.py         # View the code
+cat requirements.txt   # View dependencies
+zip -r ../grayscale-model.zip predict.py requirements.txt
+cd ..
+# Now upload grayscale-model.zip via the web UI
+```
 
 ## API Endpoints
 

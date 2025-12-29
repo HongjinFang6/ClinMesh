@@ -11,3 +11,8 @@ export const login = async (username, password) => {
   });
   return response.data;
 };
+
+export const getProfile = async () => {
+  const response = await apiClient.get('/api/users/profile');
+  return response.data;
+};

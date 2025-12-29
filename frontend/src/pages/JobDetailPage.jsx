@@ -28,12 +28,25 @@ export const JobDetailPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Job {jobId.slice(0, 8)}</h1>
+        <div>
+          <h1 className="text-3xl font-bold">
+            {job?.name || `Job ${jobId.slice(0, 8)}`}
+          </h1>
+          {job?.name && (
+            <p className="text-sm text-gray-500 mt-1">ID: {jobId.slice(0, 8)}</p>
+          )}
+        </div>
         <StatusBadge status={job?.status} />
       </div>
 
       <Card>
         <div className="space-y-4">
+          {job?.name && (
+            <div>
+              <p className="text-sm text-gray-600">Name</p>
+              <p className="font-medium">{job.name}</p>
+            </div>
+          )}
           <div>
             <p className="text-sm text-gray-600">Created</p>
             <p className="font-medium">{new Date(job?.created_at).toLocaleString()}</p>

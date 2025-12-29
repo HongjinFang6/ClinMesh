@@ -22,6 +22,11 @@ class JobStatus(str, enum.Enum):
     FAILED = "FAILED"
 
 
+class UserRole(str, enum.Enum):
+    DEVELOPER = "DEVELOPER"
+    DOCTOR = "DOCTOR"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -29,9 +34,11 @@ class User(Base):
     username = Column(String(100), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
+    role = Column(Enum(UserRole), nullable=False, default=UserRole.DOCTOR)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     models = relationship("Model", back_populates="owner", cascade="all, delete-orphan")
+    favorites = relationship("ModelFavorite", back_populates="user", cascade="all, delete-orphan")
 
 
 class Model(Base):
@@ -42,6 +49,8 @@ class Model(Base):
     description = Column(Text)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     is_public = Column(Boolean, default=False, nullable=False)
+    before_image_path = Column(String(500))  # MinIO path to before demo image
+    after_image_path = Column(String(500))   # MinIO path to after demo image
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     owner = relationship("User", back_populates="models")
@@ -73,6 +82,7 @@ class Job(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     version_id = Column(UUID(as_uuid=True), ForeignKey("model_versions.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    name = Column(String(255), nullable=True)  # Optional user-defined job name
     status = Column(Enum(JobStatus), default=JobStatus.UPLOADING, nullable=False)
     input_path = Column(String(500))  # MinIO path to input image
     output_paths = Column(Text)  # JSON list of MinIO paths to output files
@@ -82,3 +92,15 @@ class Job(Base):
 
     version = relationship("ModelVersion", back_populates="jobs")
     user = relationship("User")
+
+
+class ModelFavorite(Base):
+    __tablename__ = "model_favorites"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="favorites")
+    model = relationship("Model")

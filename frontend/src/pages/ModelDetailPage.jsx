@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { usePolling } from '../hooks/usePolling';
-import { getModel, getModelVersions, getModelVersion, deleteModelVersion, copyModel } from '../api/models';
+import { getModel, getModelVersions, getModelVersion, deleteModelVersion, copyModel, favoriteModel, unfavoriteModel, getFavoriteModels } from '../api/models';
 import { ModelVersionStatus } from '../utils/constants';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -9,6 +9,7 @@ import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { UploadModelPackage } from '../components/models/UploadModelPackage';
 import { ModelSettingsModal } from '../components/models/ModelSettingsModal';
+import { useAuth } from '../hooks/useAuth';
 
 // Helper to get current user ID from JWT token
 const getCurrentUserId = () => {
@@ -25,6 +26,7 @@ const getCurrentUserId = () => {
 export const ModelDetailPage = () => {
   const { modelId, versionId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [model, setModel] = useState(null);
   const [versions, setVersions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +34,8 @@ export const ModelDetailPage = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [deletingVersionId, setDeletingVersionId] = useState(null);
   const [isCopying, setIsCopying] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
 
   const shouldPoll = (data) => {
     return data?.status === ModelVersionStatus.BUILDING;
@@ -51,12 +55,14 @@ export const ModelDetailPage = () => {
 
   const fetchModelDetails = async () => {
     try {
-      const [modelData, versionsData] = await Promise.all([
+      const [modelData, versionsData, favorites] = await Promise.all([
         getModel(modelId),
-        getModelVersions(null, modelId)
+        getModelVersions(null, modelId),
+        getFavoriteModels()
       ]);
       setModel(modelData);
       setVersions(versionsData);
+      setIsFavorited(favorites.some(f => f.id === modelId));
     } catch (err) {
       console.error('Error fetching model details:', err);
     } finally {
@@ -104,6 +110,24 @@ export const ModelDetailPage = () => {
       alert(err.response?.data?.detail || 'Failed to copy model');
     } finally {
       setIsCopying(false);
+    }
+  };
+
+  const handleFavoriteToggle = async () => {
+    setIsTogglingFavorite(true);
+    try {
+      if (isFavorited) {
+        await unfavoriteModel(modelId);
+        setIsFavorited(false);
+      } else {
+        await favoriteModel(modelId);
+        setIsFavorited(true);
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert(err.response?.data?.detail || 'Failed to update favorite');
+    } finally {
+      setIsTogglingFavorite(false);
     }
   };
 
@@ -196,7 +220,10 @@ export const ModelDetailPage = () => {
 
   const currentUserId = getCurrentUserId();
   const isOwner = model?.owner_id === currentUserId;
-  const canCopy = model?.is_public && !isOwner;
+  const isDoctor = user?.role === 'DOCTOR';
+  const isDeveloper = user?.role === 'DEVELOPER';
+  const canCopy = model?.is_public && !isOwner && isDeveloper;
+  const canFavorite = model?.is_public && !isOwner;
 
   return (
     <div className="space-y-6">
@@ -215,6 +242,31 @@ export const ModelDetailPage = () => {
           )}
         </div>
         <div className="flex space-x-3">
+          {/* Show favorite button for doctors, copy button for developers */}
+          {isDoctor && canFavorite && (
+            <Button
+              onClick={handleFavoriteToggle}
+              variant="secondary"
+              disabled={isTogglingFavorite}
+            >
+              {isTogglingFavorite ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {isFavorited ? 'Removing...' : 'Adding...'}
+                </>
+              ) : (
+                <>
+                  <svg className="h-5 w-5 mr-2 inline" fill={isFavorited ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+                </>
+              )}
+            </Button>
+          )}
           {canCopy && (
             <Button
               onClick={handleCopyModel}
@@ -259,7 +311,7 @@ export const ModelDetailPage = () => {
       {/* Model Info Card */}
       <Card>
         <h2 className="text-xl font-semibold mb-4">Model Information</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
             <p className="text-sm text-gray-500">Visibility</p>
             <span className={`inline-block mt-1 text-xs px-2 py-1 rounded ${
@@ -281,6 +333,35 @@ export const ModelDetailPage = () => {
             <p className="mt-1 font-medium">{versions.length}</p>
           </div>
         </div>
+
+        {/* Before & After Demo */}
+        {(model.before_image_path || model.after_image_path) && (
+          <div className="border-t border-gray-200 pt-6">
+            <h3 className="text-lg font-semibold mb-4">Model Demonstration</h3>
+            <div className="grid grid-cols-2 gap-6">
+              {model.before_image_path && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Before</p>
+                  <img
+                    src={`http://localhost:8000/api/models/${model.id}/demo/before`}
+                    alt="Before demonstration"
+                    className="w-full rounded-lg border border-gray-200 shadow-sm"
+                  />
+                </div>
+              )}
+              {model.after_image_path && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">After</p>
+                  <img
+                    src={`http://localhost:8000/api/models/${model.id}/demo/after`}
+                    alt="After demonstration"
+                    className="w-full rounded-lg border border-gray-200 shadow-sm"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Versions List */}

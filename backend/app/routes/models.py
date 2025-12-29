@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from app.db import get_db
-from app.models import User, Model, ModelVersion, ModelVersionStatus
+from app.models import User, Model, ModelVersion, ModelVersionStatus, ModelFavorite
 from app.schemas import (
     ModelCreate, ModelResponse, ModelVersionCreate,
     ModelVersionResponse, PresignedUploadResponse, BuildTriggerResponse
 )
-from app.auth import get_current_user
+from app.auth import get_current_user, get_developer_user
 from app.storage import storage
 from app.tasks.celery_app import celery_app
 from typing import Optional
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/models", tags=["models"])
 @router.post("/", response_model=ModelResponse, status_code=status.HTTP_201_CREATED)
 async def create_model(
     model_data: ModelCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     # Create model with current user as owner
@@ -100,6 +100,7 @@ def list_model_versions(
 @router.post("/versions", response_model=PresignedUploadResponse)
 def create_model_version(
     version_data: ModelVersionCreate,
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     # Verify model exists
@@ -149,6 +150,7 @@ def get_model_version(
 @router.post("/versions/{version_id}/build", response_model=BuildTriggerResponse)
 def trigger_build(
     version_id: UUID,
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     version = db.query(ModelVersion).filter(ModelVersion.id == version_id).first()
@@ -181,6 +183,7 @@ def trigger_build(
 async def upload_model_package(
     version_id: UUID,
     file: UploadFile = File(...),
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     """Proxy endpoint for uploading model package to MinIO."""
@@ -223,6 +226,7 @@ async def upload_model_package(
 @router.delete("/versions/{version_id}")
 def delete_model_version(
     version_id: UUID,
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     """Delete a model version"""
@@ -235,7 +239,48 @@ def delete_model_version(
     return {"message": "Version deleted successfully"}
 
 
-# This route must come after all /versions routes to avoid matching "versions" as a model_id
+# Favorites routes must come before /{model_id} to avoid matching "favorites" as a model_id
+@router.get("/favorites/list", response_model=List[ModelResponse])
+async def list_favorite_models(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's favorited models"""
+    favorites = db.query(ModelFavorite).filter(
+        ModelFavorite.user_id == current_user.id
+    ).all()
+
+    if not favorites:
+        return []
+
+    model_ids = [fav.model_id for fav in favorites]
+    models = db.query(Model).filter(Model.id.in_(model_ids)).all()
+
+    # Add owner username to each model
+    result = []
+    for model in models:
+        model_dict = {
+            "id": model.id,
+            "name": model.name,
+            "description": model.description,
+            "owner_id": model.owner_id,
+            "is_public": model.is_public,
+            "created_at": model.created_at,
+            "owner_username": None
+        }
+
+        # Get owner username if owner exists
+        if model.owner_id:
+            owner = db.query(User).filter(User.id == model.owner_id).first()
+            if owner:
+                model_dict["owner_username"] = owner.username
+
+        result.append(model_dict)
+
+    return result
+
+
+# This route must come after all /versions and /favorites routes to avoid matching them as a model_id
 @router.get("/{model_id}", response_model=ModelResponse)
 async def get_model(
     model_id: UUID,
@@ -257,7 +302,7 @@ async def get_model(
 async def update_model(
     model_id: UUID,
     model_data: ModelCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     """Update model details - only owner can update"""
@@ -282,7 +327,7 @@ async def update_model(
 @router.delete("/{model_id}")
 async def delete_model(
     model_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     """Delete a model and all its versions - only owner can delete"""
@@ -302,7 +347,7 @@ async def delete_model(
 @router.post("/{model_id}/copy", response_model=ModelResponse)
 async def copy_model(
     model_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_developer_user),
     db: Session = Depends(get_db)
 ):
     """Copy a public model to your own collection"""
@@ -351,3 +396,200 @@ async def copy_model(
     db.commit()
 
     return new_model
+
+
+@router.post("/{model_id}/favorite")
+async def favorite_model(
+    model_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Add a model to user's favorites"""
+    # Check if model exists
+    model = db.query(Model).filter(Model.id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Check if already favorited
+    existing_favorite = db.query(ModelFavorite).filter(
+        ModelFavorite.user_id == current_user.id,
+        ModelFavorite.model_id == model_id
+    ).first()
+
+    if existing_favorite:
+        raise HTTPException(status_code=400, detail="Model already favorited")
+
+    # Create favorite
+    favorite = ModelFavorite(
+        user_id=current_user.id,
+        model_id=model_id
+    )
+    db.add(favorite)
+    db.commit()
+
+    return {"message": "Model added to favorites"}
+
+
+@router.delete("/{model_id}/favorite")
+async def unfavorite_model(
+    model_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove a model from user's favorites"""
+    favorite = db.query(ModelFavorite).filter(
+        ModelFavorite.user_id == current_user.id,
+        ModelFavorite.model_id == model_id
+    ).first()
+
+    if not favorite:
+        raise HTTPException(status_code=404, detail="Favorite not found")
+
+    db.delete(favorite)
+    db.commit()
+
+    return {"message": "Model removed from favorites"}
+
+
+@router.post("/{model_id}/demo/upload-before")
+async def upload_before_image(
+    model_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_developer_user),
+    db: Session = Depends(get_db)
+):
+    """Upload before demo image for a model"""
+    model = db.query(Model).filter(Model.id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Check ownership
+    if model.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the model owner can upload demo images")
+
+    try:
+        # Save file temporarily
+        import tempfile
+        import os
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        # Upload to MinIO
+        object_name = f"model_demos/{model_id}/before.png"
+        storage.upload_file(tmp_path, object_name)
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        # Update model record
+        model.before_image_path = object_name
+        db.commit()
+
+        return {"message": "Before image uploaded successfully", "path": object_name}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.post("/{model_id}/demo/upload-after")
+async def upload_after_image(
+    model_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_developer_user),
+    db: Session = Depends(get_db)
+):
+    """Upload after demo image for a model"""
+    model = db.query(Model).filter(Model.id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    # Check ownership
+    if model.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Only the model owner can upload demo images")
+
+    try:
+        # Save file temporarily
+        import tempfile
+        import os
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.png') as tmp_file:
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+
+        # Upload to MinIO
+        object_name = f"model_demos/{model_id}/after.png"
+        storage.upload_file(tmp_path, object_name)
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        # Update model record
+        model.after_image_path = object_name
+        db.commit()
+
+        return {"message": "After image uploaded successfully", "path": object_name}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.get("/{model_id}/demo/before")
+async def download_before_image(
+    model_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Download before demo image"""
+    from fastapi.responses import StreamingResponse
+    import io
+
+    model = db.query(Model).filter(Model.id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    if not model.before_image_path:
+        raise HTTPException(status_code=404, detail="No before image available")
+
+    try:
+        # Download from MinIO
+        response = storage.client.get_object(storage.bucket, model.before_image_path)
+        file_data = response.read()
+
+        return StreamingResponse(
+            io.BytesIO(file_data),
+            media_type="image/png",
+            headers={"Content-Disposition": "inline; filename=before.png"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+
+
+@router.get("/{model_id}/demo/after")
+async def download_after_image(
+    model_id: UUID,
+    db: Session = Depends(get_db)
+):
+    """Download after demo image"""
+    from fastapi.responses import StreamingResponse
+    import io
+
+    model = db.query(Model).filter(Model.id == model_id).first()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    if not model.after_image_path:
+        raise HTTPException(status_code=404, detail="No after image available")
+
+    try:
+        # Download from MinIO
+        response = storage.client.get_object(storage.bucket, model.after_image_path)
+        file_data = response.read()
+
+        return StreamingResponse(
+            io.BytesIO(file_data),
+            media_type="image/png",
+            headers={"Content-Disposition": "inline; filename=after.png"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")

@@ -6,7 +6,8 @@ export const RegisterForm = ({ onRegisterSuccess }) => {
   const [formData, setFormData] = useState({
     username: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'DOCTOR'
   });
   const [error, setError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState({
@@ -101,6 +102,42 @@ export const RegisterForm = ({ onRegisterSuccess }) => {
           className="input"
           required
         />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+        <div className="space-y-2">
+          <div className="flex items-start">
+            <input
+              type="radio"
+              id="doctor"
+              name="role"
+              value="DOCTOR"
+              checked={formData.role === 'DOCTOR'}
+              onChange={handleChange}
+              className="mt-1 mr-2"
+            />
+            <label htmlFor="doctor" className="flex-1 cursor-pointer">
+              <div className="font-medium text-gray-900">Doctor</div>
+              <div className="text-sm text-gray-600">Use AI models for medical image analysis</div>
+            </label>
+          </div>
+          <div className="flex items-start">
+            <input
+              type="radio"
+              id="developer"
+              name="role"
+              value="DEVELOPER"
+              checked={formData.role === 'DEVELOPER'}
+              onChange={handleChange}
+              className="mt-1 mr-2"
+            />
+            <label htmlFor="developer" className="flex-1 cursor-pointer">
+              <div className="font-medium text-gray-900">Developer</div>
+              <div className="text-sm text-gray-600">Upload and manage AI models, plus use them for analysis</div>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div>

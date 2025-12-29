@@ -65,12 +65,30 @@ def run_inference_task(self, job_id: str):
             os.makedirs(input_dir)
             os.makedirs(output_dir)
 
-            # Download input image from MinIO
-            input_ext = job.input_path.split('.')[-1]
-            local_input_path = os.path.join(input_dir, f"input.{input_ext}")
+            # Download input image(s) from MinIO
+            # Check if this is a batch job (input_path is JSON array) or single job
+            try:
+                input_paths = json.loads(job.input_path)
+                is_batch = isinstance(input_paths, list)
+            except (json.JSONDecodeError, TypeError):
+                # Not JSON, treat as single file path
+                input_paths = [job.input_path]
+                is_batch = False
 
-            logger.info(f"Downloading input from {job.input_path}")
-            storage.download_file(job.input_path, local_input_path)
+            logger.info(f"Downloading {len(input_paths)} input file(s)")
+
+            for idx, input_path in enumerate(input_paths):
+                input_ext = input_path.split('.')[-1]
+                if is_batch:
+                    # For batch jobs, preserve filenames or use index
+                    filename = input_path.split('/')[-1]
+                    local_input_path = os.path.join(input_dir, filename)
+                else:
+                    # For single jobs, use simple name
+                    local_input_path = os.path.join(input_dir, f"input.{input_ext}")
+
+                logger.info(f"Downloading input from {input_path} to {local_input_path}")
+                storage.download_file(input_path, local_input_path)
 
             # Pull Docker image
             docker_client = docker.from_env()
