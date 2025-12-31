@@ -12,7 +12,7 @@ export const DoctorNavbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/dashboard" className="text-2xl font-bold text-primary-500">
-              ClinAI
+              ClinMesh
             </Link>
             <div className="ml-10 flex space-x-4">
               <Link to="/dashboard" className="text-gray-700 hover:text-primary-500 px-3 py-2 font-medium">

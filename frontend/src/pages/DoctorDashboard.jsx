@@ -49,7 +49,7 @@ export const DoctorDashboard = () => {
     <div className="space-y-8">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary-500 to-primary-600 rounded-lg shadow-lg p-8 text-white">
-        <h1 className="text-4xl font-bold mb-2">Welcome to ClinAI</h1>
+        <h1 className="text-4xl font-bold mb-2">Welcome to ClinMesh</h1>
         <p className="text-xl opacity-90">AI-powered medical image analysis at your fingertips</p>
       </div>
 

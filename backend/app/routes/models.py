@@ -8,7 +8,7 @@ from app.schemas import (
     ModelCreate, ModelResponse, ModelVersionCreate,
     ModelVersionResponse, PresignedUploadResponse, BuildTriggerResponse
 )
-from app.auth import get_current_user, get_developer_user
+from app.auth import get_current_user, get_current_user_optional, get_developer_user
 from app.storage import storage
 from app.tasks.celery_app import celery_app
 from typing import Optional
@@ -38,20 +38,25 @@ async def create_model(
 @router.get("/", response_model=List[ModelResponse])
 async def list_models(
     public_only: bool = False,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """
     List models:
-    - If public_only=True: Return all public models (from any user)
-    - If public_only=False: Return only current user's models (public and private)
+    - If public_only=True: Return all public models (from any user) - no auth required
+    - If public_only=False: Return only current user's models (public and private) - requires auth
     """
     query = db.query(Model)
     if public_only:
-        # Show all public models
+        # Show all public models (no auth required)
         query = query.filter(Model.is_public == True)
     else:
-        # Show only current user's models
+        # Show only current user's models (requires auth)
+        if not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to view your models"
+            )
         query = query.filter(Model.owner_id == current_user.id)
 
     models = query.all()
@@ -284,16 +289,20 @@ async def list_favorite_models(
 @router.get("/{model_id}", response_model=ModelResponse)
 async def get_model(
     model_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     model = db.query(Model).filter(Model.id == model_id).first()
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    # Check access: owner can access any model, others can only access public models
-    if model.owner_id != current_user.id and not model.is_public:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Check access: public models are accessible to everyone
+    if not model.is_public:
+        # Private models require authentication and ownership
+        if not current_user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        if model.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     return model
 

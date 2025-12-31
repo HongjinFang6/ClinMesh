@@ -43,7 +43,7 @@ def run_inference_task(self, job_id: str):
         work_dir = tempfile.mkdtemp(dir=temp_base, prefix=f'job_{job_id}_')
 
         # Convert container path to host path for Docker volume mounts
-        # /app is mounted from ./backend on the host (ClinAI/backend)
+        # /app is mounted from ./backend on the host (ClinMesh/backend)
         # Get the absolute path to the backend directory on the host
         container_base = '/app'
         # __file__ is /app/app/tasks/inference.py, so go up 3 levels to get /app
@@ -51,7 +51,7 @@ def run_inference_task(self, job_id: str):
         app_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file)))  # /app
 
         # This assumes we're running in Docker and /app is mounted from the host
-        # The host path would be something like /Users/.../ClinAI/backend
+        # The host path would be something like /Users/.../ClinMesh/backend
         # For now, use an environment variable or hardcode the detection
         host_base = os.environ.get('HOST_BACKEND_PATH', app_root)
         host_work_dir = work_dir.replace(container_base, host_base)

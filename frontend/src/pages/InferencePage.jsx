@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { getModelVersions, getModels } from '../api/models';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getModelVersions, getModels, getModel } from '../api/models';
 import { createJob, uploadImageToPresignedUrl, runJob, createBatchJob, createMultipleJobs, uploadMultipleImages, runMultipleJobs } from '../api/jobs';
 import { usePolling } from '../hooks/usePolling';
 import { useMultiplePolling } from '../hooks/useMultiplePolling';
 import { getJob } from '../api/jobs';
+import { useAuth } from '../hooks/useAuth';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { FolderImageUpload } from '../components/jobs/FolderImageUpload';
@@ -14,8 +16,13 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { JobStatus } from '../utils/constants';
 
 export const InferencePage = () => {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const modelIdFromUrl = searchParams.get('modelId');
   const [versions, setVersions] = useState([]);
   const [models, setModels] = useState({});
+  const [selectedModel, setSelectedModel] = useState(null);
   const [selectedVersionId, setSelectedVersionId] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [processingMode, setProcessingMode] = useState('individual');
@@ -28,21 +35,41 @@ export const InferencePage = () => {
 
   useEffect(() => {
     fetchReadyVersions();
-  }, []);
+  }, [modelIdFromUrl]);
 
   const fetchReadyVersions = async () => {
     try {
-      // Fetch all READY versions
-      const versionsData = await getModelVersions('READY');
-      setVersions(versionsData);
+      // If modelId is provided in URL, fetch that specific model
+      if (modelIdFromUrl) {
+        const modelData = await getModel(modelIdFromUrl);
+        setSelectedModel(modelData);
 
-      // Fetch model details for each version
-      const modelsData = await getModels();
-      const modelsMap = {};
-      modelsData.forEach(model => {
-        modelsMap[model.id] = model;
-      });
-      setModels(modelsMap);
+        // Fetch only versions for this model
+        const versionsData = await getModelVersions('READY', modelIdFromUrl);
+        setVersions(versionsData);
+
+        // Set the model in the models map
+        setModels({ [modelData.id]: modelData });
+
+        // Auto-select first version if available
+        if (versionsData.length > 0) {
+          setSelectedVersionId(versionsData[0].id);
+          setStep(2); // Move to upload step
+        }
+      } else {
+        // Fetch all READY versions
+        const versionsData = await getModelVersions('READY');
+        setVersions(versionsData);
+
+        // Fetch model details for each version
+        // If authenticated, get user's models; otherwise get public models
+        const modelsData = await getModels(!isAuthenticated);
+        const modelsMap = {};
+        modelsData.forEach(model => {
+          modelsMap[model.id] = model;
+        });
+        setModels(modelsMap);
+      }
     } catch (err) {
       setError('Failed to load ready models');
     }
@@ -240,6 +267,31 @@ export const InferencePage = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Run Inference</h1>
 
+      {/* Sign-in reminder for non-authenticated users */}
+      {!isAuthenticated && (
+        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-blue-700">
+                You can use models without signing in, but{' '}
+                <button
+                  onClick={() => navigate('/login')}
+                  className="font-medium underline hover:text-blue-800"
+                >
+                  sign in
+                </button>
+                {' '}to save your analysis history and track your jobs.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Step indicators */}
       <div className="flex items-center justify-center space-x-4">
         <div className={`px-4 py-2 rounded-lg ${step >= 1 ? 'bg-primary-500 text-white' : 'bg-gray-200'}`}>
@@ -270,11 +322,30 @@ export const InferencePage = () => {
 
       {step === 1 && (
         <Card>
-          <h2 className="text-xl font-semibold mb-4">Select Model Version</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {selectedModel ? `Using Model: ${selectedModel.name}` : 'Select Model Version'}
+          </h2>
+
+          {selectedModel && (
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>{selectedModel.name}</strong>
+                {selectedModel.description && ` - ${selectedModel.description}`}
+              </p>
+              {selectedModel.owner_username && (
+                <p className="text-xs text-blue-600 mt-1">
+                  by {selectedModel.owner_username}
+                </p>
+              )}
+            </div>
+          )}
+
           {versions.length === 0 ? (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
               <p className="text-yellow-800">
-                No ready models found. Please upload and build a model first.
+                {selectedModel
+                  ? `No ready versions found for ${selectedModel.name}. The model owner needs to upload a version first.`
+                  : 'No ready models found. Please upload and build a model first.'}
               </p>
             </div>
           ) : (
@@ -294,7 +365,7 @@ export const InferencePage = () => {
                     const model = models[version.model_id];
                     return (
                       <option key={version.id} value={version.id}>
-                        {model.name} - {version.version_number}
+                        {model.name} - Version {version.version_number}
                       </option>
                     );
                   })}

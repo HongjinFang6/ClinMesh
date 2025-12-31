@@ -66,6 +66,26 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
+) -> Optional[User]:
+    """
+    Get current user if authenticated, otherwise return None.
+    Useful for endpoints that work for both authenticated and unauthenticated users.
+    """
+    if not credentials:
+        return None
+
+    try:
+        token = credentials.credentials
+        token_data = decode_access_token(token)
+        user = db.query(User).filter(User.id == token_data.user_id).first()
+        return user
+    except:
+        return None
+
+
 async def get_developer_user(
     current_user: User = Depends(get_current_user)
 ) -> User:

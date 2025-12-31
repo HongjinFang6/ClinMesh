@@ -1,10 +1,10 @@
-# ClinAI - Computer Vision Model Deployment Platform
+# ClinMesh - Computer Vision Model Deployment Platform
 
-A full-stack platform for deploying and running computer vision models with zero DevOps overhead. Simply upload your Python model code, and ClinAI automatically containerizes it, builds Docker images, and provides both a web UI and REST API for running inference.
+A full-stack platform for deploying and running computer vision models with zero DevOps overhead. Simply upload your Python model code, and ClinMesh automatically containerizes it, builds Docker images, and provides both a web UI and REST API for running inference.
 
 ## Overview
 
-ClinAI is designed for data scientists and ML engineers who want to deploy their CV models without dealing with infrastructure complexity. The platform handles:
+ClinMesh is designed for data scientists and ML engineers who want to deploy their CV models without dealing with infrastructure complexity. The platform handles:
 
 - **Model Packaging**: Upload a ZIP file with your Python code and dependencies
 - **Automatic Containerization**: Builds Docker images without requiring a Dockerfile
@@ -80,7 +80,7 @@ ClinAI is designed for data scientists and ML engineers who want to deploy their
 ## Project Structure
 
 ```
-ClinAI/
+ClinMesh/
 ├── docker-compose.yml              # Docker services orchestration
 ├── README.md
 ├── minio-init.sh                   # MinIO bucket initialization
@@ -170,7 +170,7 @@ ClinAI/
 ### 1. Start the Backend Services
 
 ```bash
-cd ClinAI
+cd ClinMesh
 docker compose up -d
 ```
 
@@ -205,7 +205,7 @@ The React frontend will start on **http://localhost:5174**
 
 Open your browser and navigate to **http://localhost:5174**
 
-You'll see the ClinAI landing page with options to:
+You'll see the ClinMesh landing page with options to:
 - **My Models**: Create and manage your CV models
 - **Run Inference**: Run predictions on your models
 - **Jobs**: View inference job history

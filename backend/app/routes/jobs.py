@@ -6,7 +6,7 @@ import json
 from app.db import get_db
 from app.models import User, ModelVersion, Job, JobStatus, ModelVersionStatus
 from app.schemas import JobCreate, JobResponse, JobInputUploadResponse, JobOutputResponse, BatchJobCreate, BatchJobResponse, MultipleJobsCreate, SingleJobInfo, BatchStatusRequest
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_optional
 from app.storage import storage
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/jobs", tags=["jobs"])
 @router.post("/", response_model=JobInputUploadResponse, status_code=status.HTTP_201_CREATED)
 async def create_job(
     job_data: JobCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     # Verify version exists and is ready
@@ -29,10 +29,10 @@ async def create_job(
             detail=f"Model version is not ready (status: {version.status})"
         )
 
-    # Create job with current user
+    # Create job (with or without user)
     new_job = Job(
         version_id=job_data.version_id,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         name=job_data.name,
         status=JobStatus.UPLOADING
     )
@@ -57,7 +57,7 @@ async def create_job(
 @router.post("/batch", response_model=BatchJobResponse, status_code=status.HTTP_201_CREATED)
 async def create_batch_job(
     job_data: BatchJobCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """Create a single job that processes multiple images in batch."""
@@ -72,10 +72,10 @@ async def create_batch_job(
             detail=f"Model version is not ready (status: {version.status})"
         )
 
-    # Create job with current user
+    # Create job (with or without user)
     new_job = Job(
         version_id=job_data.version_id,
-        user_id=current_user.id,
+        user_id=current_user.id if current_user else None,
         name=job_data.name,
         status=JobStatus.UPLOADING
     )
@@ -107,7 +107,7 @@ async def create_batch_job(
 @router.post("/multiple", response_model=List[SingleJobInfo], status_code=status.HTTP_201_CREATED)
 async def create_multiple_jobs(
     job_data: MultipleJobsCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """Create multiple individual jobs, one for each image."""
@@ -136,7 +136,7 @@ async def create_multiple_jobs(
 
         new_job = Job(
             version_id=job_data.version_id,
-            user_id=current_user.id,
+            user_id=current_user.id if current_user else None,
             name=job_name,
             status=JobStatus.UPLOADING
         )
@@ -164,14 +164,22 @@ async def create_multiple_jobs(
 @router.post("/batch-status", response_model=List[JobResponse])
 async def get_batch_status(
     request: BatchStatusRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     """Get status of multiple jobs at once."""
-    jobs = db.query(Job).filter(
-        Job.id.in_(request.job_ids),
-        Job.user_id == current_user.id
-    ).all()
+    # For unauthenticated users, just get jobs by ID without user filter
+    if current_user:
+        jobs = db.query(Job).filter(
+            Job.id.in_(request.job_ids),
+            Job.user_id == current_user.id
+        ).all()
+    else:
+        # For anonymous users, get jobs that have no user_id
+        jobs = db.query(Job).filter(
+            Job.id.in_(request.job_ids),
+            Job.user_id.is_(None)
+        ).all()
 
     return jobs
 
@@ -179,16 +187,17 @@ async def get_batch_status(
 @router.post("/{job_id}/run", response_model=JobResponse)
 async def run_job(
     job_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Check ownership
-    if job.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Check ownership (only if job has a user and current user is authenticated)
+    if job.user_id:
+        if not current_user or job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     # Check status
     if job.status != JobStatus.UPLOADING:
@@ -353,16 +362,17 @@ async def download_job_output(
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(
     job_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Check ownership
-    if job.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Check ownership (only if job has a user)
+    if job.user_id:
+        if not current_user or job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     return job
 
@@ -370,16 +380,17 @@ async def get_job(
 @router.get("/{job_id}/outputs", response_model=JobOutputResponse)
 async def get_job_outputs(
     job_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Check ownership
-    if job.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+    # Check ownership (only if job has a user)
+    if job.user_id:
+        if not current_user or job.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
     # Return API proxy endpoints instead of presigned URLs
     output_urls = []

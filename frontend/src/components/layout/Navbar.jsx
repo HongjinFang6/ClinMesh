@@ -12,7 +12,7 @@ export const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/dashboard" className="text-2xl font-bold text-primary-500">
-              ClinAI
+              ClinMesh
             </Link>
             {isAuthenticated && (
               <div className="ml-10 flex space-x-4">

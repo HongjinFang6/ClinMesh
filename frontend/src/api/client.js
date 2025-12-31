@@ -26,8 +26,12 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      removeToken();
-      window.location.href = '/';
+      // Remove invalid token but don't redirect
+      // Let components handle authentication flow
+      const hadToken = getToken();
+      if (hadToken) {
+        removeToken();
+      }
     }
     return Promise.reject(error);
   }

@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
 
 export const LandingPage = () => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('login');
   const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    // Check if we should show register tab based on pathname
+    if (location.pathname === '/register') {
+      setActiveTab('register');
+    } else {
+      setActiveTab('login');
+    }
+  }, [location.pathname]);
 
   const handleRegisterSuccess = () => {
     setSuccessMessage('Registration successful! Please login with your credentials.');
@@ -17,7 +28,7 @@ export const LandingPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-primary-500 to-secondary-500 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
         <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
-          ClinAI Platform
+          ClinMesh Platform
         </h1>
         <p className="text-center text-gray-600 mb-6">
           Deploy and run computer vision models

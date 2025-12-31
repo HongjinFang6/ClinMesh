@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getModels, favoriteModel, unfavoriteModel, getFavoriteModels } from '../api/models';
+import { useAuth } from '../hooks/useAuth';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
@@ -9,20 +10,29 @@ export const PublicModelsPage = () => {
   const [models, setModels] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [isAuthenticated]);
 
   const fetchData = async () => {
     try {
-      const [publicModels, favorites] = await Promise.all([
-        getModels(true), // Fetch only public models
-        getFavoriteModels()
-      ]);
+      const publicModels = await getModels(true); // Fetch only public models
       setModels(publicModels);
-      setFavoriteIds(new Set(favorites.map(f => f.id)));
+
+      // Only fetch favorites if authenticated
+      if (isAuthenticated) {
+        try {
+          const favorites = await getFavoriteModels();
+          setFavoriteIds(new Set(favorites.map(f => f.id)));
+        } catch (error) {
+          console.error('Failed to load favorites:', error);
+        }
+      } else {
+        setFavoriteIds(new Set());
+      }
     } finally {
       setIsLoading(false);
     }
@@ -31,6 +41,12 @@ export const PublicModelsPage = () => {
   const handleFavoriteToggle = async (e, modelId) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
 
     try {
       if (favoriteIds.has(modelId)) {

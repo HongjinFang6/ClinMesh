@@ -26,10 +26,11 @@ const getCurrentUserId = () => {
 export const ModelDetailPage = () => {
   const { modelId, versionId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [model, setModel] = useState(null);
   const [versions, setVersions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showUpload, setShowUpload] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [deletingVersionId, setDeletingVersionId] = useState(null);
@@ -51,20 +52,44 @@ export const ModelDetailPage = () => {
     if (modelId && !versionId) {
       fetchModelDetails();
     }
-  }, [modelId, versionId]);
+  }, [modelId, versionId, isAuthenticated]);
 
   const fetchModelDetails = async () => {
     try {
-      const [modelData, versionsData, favorites] = await Promise.all([
+      const [modelData, versionsData] = await Promise.all([
         getModel(modelId),
-        getModelVersions(null, modelId),
-        getFavoriteModels()
+        getModelVersions(null, modelId)
       ]);
+
+      // Check if unauthenticated user is trying to access private model
+      if (!isAuthenticated && !modelData.is_public) {
+        setError('private');
+        return;
+      }
+
       setModel(modelData);
       setVersions(versionsData);
-      setIsFavorited(favorites.some(f => f.id === modelId));
+      setError(null);
+
+      // Only fetch favorites if authenticated
+      if (isAuthenticated) {
+        try {
+          const favorites = await getFavoriteModels();
+          setIsFavorited(favorites.some(f => f.id === modelId));
+        } catch (err) {
+          console.error('Error fetching favorites:', err);
+        }
+      }
     } catch (err) {
       console.error('Error fetching model details:', err);
+      // Check if it's an authentication error (401 or 403)
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('private');
+      } else if (err.response?.status === 404) {
+        setError('notfound');
+      } else {
+        setError('unknown');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -96,6 +121,12 @@ export const ModelDetailPage = () => {
   };
 
   const handleCopyModel = async () => {
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
     if (!window.confirm('Copy this model to your collection? All ready versions will be copied.')) {
       return;
     }
@@ -114,6 +145,12 @@ export const ModelDetailPage = () => {
   };
 
   const handleFavoriteToggle = async () => {
+    // Redirect to login if not authenticated
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
     setIsTogglingFavorite(true);
     try {
       if (isFavorited) {
@@ -214,8 +251,18 @@ export const ModelDetailPage = () => {
     );
   }
 
+  // If error occurred, redirect to public models (private models just won't load)
+  if (error) {
+    navigate('/public-models');
+    return null;
+  }
+
   if (!model) {
-    return <div>Model not found</div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <LoadingSpinner size="lg" />
+      </div>
+    );
   }
 
   const currentUserId = getCurrentUserId();
@@ -242,8 +289,20 @@ export const ModelDetailPage = () => {
           )}
         </div>
         <div className="flex space-x-3">
-          {/* Show favorite button for doctors, copy button for developers */}
-          {isDoctor && canFavorite && (
+          {/* Use Model button - show for unauthenticated users and authenticated non-owners on public models */}
+          {model.is_public && (!isAuthenticated || !isOwner) && (
+            <Button
+              onClick={() => navigate(`/inference?modelId=${model.id}`)}
+            >
+              <svg className="h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+              Use This Model
+            </Button>
+          )}
+
+          {/* Favorite button - show for public models (anyone can try, redirects if not auth) */}
+          {model.is_public && !isOwner && isAuthenticated && (
             <Button
               onClick={handleFavoriteToggle}
               variant="secondary"
@@ -267,7 +326,9 @@ export const ModelDetailPage = () => {
               )}
             </Button>
           )}
-          {canCopy && (
+
+          {/* Copy button - only for authenticated developers */}
+          {canCopy && isAuthenticated && (
             <Button
               onClick={handleCopyModel}
               variant="secondary"
@@ -291,7 +352,9 @@ export const ModelDetailPage = () => {
               )}
             </Button>
           )}
-          {isOwner && (
+
+          {/* Owner management buttons - only for authenticated owners */}
+          {isOwner && isAuthenticated && (
             <>
               <Button onClick={() => setShowSettings(true)} variant="secondary">
                 <svg className="h-5 w-5 mr-2 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -387,9 +450,9 @@ export const ModelDetailPage = () => {
             </svg>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No versions yet</h3>
             <p className="mt-1 text-sm text-gray-500">
-              {isOwner ? 'Upload your first model version to get started.' : 'This model has no versions available yet.'}
+              {isOwner && isAuthenticated ? 'Upload your first model version to get started.' : 'This model has no versions available yet.'}
             </p>
-            {isOwner && (
+            {isOwner && isAuthenticated && (
               <div className="mt-6">
                 <Button onClick={() => setShowUpload(true)}>
                   Upload First Version
@@ -422,7 +485,7 @@ export const ModelDetailPage = () => {
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
-                    {isOwner && (
+                    {isOwner && isAuthenticated && (
                       <button
                         onClick={(e) => handleDeleteVersion(ver.id, e)}
                         disabled={deletingVersionId === ver.id}
