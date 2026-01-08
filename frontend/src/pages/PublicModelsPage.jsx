@@ -10,6 +10,7 @@ export const PublicModelsPage = () => {
   const [models, setModels] = useState([]);
   const [favoriteIds, setFavoriteIds] = useState(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -65,6 +66,11 @@ export const PublicModelsPage = () => {
     }
   };
 
+  // Filter models based on search query
+  const filteredModels = models.filter(model =>
+    model.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (isLoading) return <LoadingSpinner />;
 
   return (
@@ -76,7 +82,23 @@ export const PublicModelsPage = () => {
         </p>
       </div>
 
-      {models.length === 0 ? (
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        <input
+          type="text"
+          placeholder="Search models by name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
+        />
+      </div>
+
+      {filteredModels.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <svg
@@ -92,15 +114,19 @@ export const PublicModelsPage = () => {
                 d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No public models yet</h3>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              {searchQuery ? 'No models found' : 'No public models yet'}
+            </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Be the first to share a model with the community!
+              {searchQuery
+                ? 'Try a different search term'
+                : 'Be the first to share a model with the community!'}
             </p>
           </div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {models.map(model => (
+          {filteredModels.map(model => (
             <Card key={model.id} className="hover:shadow-lg transition-shadow">
               <div className="space-y-4">
                 <div className="flex items-start justify-between">

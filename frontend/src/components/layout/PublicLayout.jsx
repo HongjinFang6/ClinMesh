@@ -40,10 +40,15 @@ export const PublicLayout = ({ children }) => {
                   Home
                 </Link>
                 <Link to="/public-models" className="text-gray-700 hover:text-primary-500 px-3 py-2 font-medium">
-                  Browse Models
+                  Public Models
                 </Link>
                 {isAuthenticated && (
                   <>
+                    {!isDoctor && (
+                      <Link to="/models" className="text-gray-700 hover:text-primary-500 px-3 py-2 font-medium">
+                        My Models
+                      </Link>
+                    )}
                     <Link to="/favorites" className="text-gray-700 hover:text-primary-500 px-3 py-2 font-medium">
                       My Favorites
                     </Link>
