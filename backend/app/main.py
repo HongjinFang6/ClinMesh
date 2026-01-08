@@ -4,18 +4,31 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 from app.routes import users, models, jobs
+from app.config import settings
+from app.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
+import logging
 
-app = FastAPI(title="CV Model Deployment Platform", version="1.0.0")
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+app = FastAPI(
+    title="ClinAI - Computer Vision Model Deployment Platform",
+    version="1.0.0",
+    docs_url="/docs" if settings.DEBUG else None,  # Disable docs in production
+    redoc_url="/redoc" if settings.DEBUG else None
+)
+
+# Security middleware (order matters - these run first)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

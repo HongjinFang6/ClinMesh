@@ -28,6 +28,8 @@ Thumbs.db
 # Environment
 .env
 .env.local
+.env.production
+.env.backup
 
 # Database
 *.db
@@ -44,3 +46,20 @@ model.zip
 
 # Alembic
 alembic/versions/*.pyc
+
+# SSL Certificates and Security
+certbot/
+nginx/ssl/
+*.pem
+*.key
+*.crt
+*.csr
+
+# Backups
+backups/
+*.sql
+*.dump
+
+# Secrets
+secrets/
+credentials/
