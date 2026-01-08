@@ -61,7 +61,7 @@ export const triggerBuild = async (versionId) => {
 };
 
 // Upload via API proxy endpoint (no presigned URL needed)
-export const uploadToPresignedUrl = async (uploadUrl, file) => {
+export const uploadToPresignedUrl = async (uploadUrl, file, onProgress) => {
   console.log('Uploading to API endpoint:', uploadUrl);
   console.log('File size:', file.size, 'bytes');
 
@@ -72,26 +72,42 @@ export const uploadToPresignedUrl = async (uploadUrl, file) => {
   // Get auth token
   const token = getToken();
 
-  // Upload to API proxy endpoint
+  // Upload to API proxy endpoint with progress tracking using XMLHttpRequest
   const fullUrl = uploadUrl.startsWith('http') ? uploadUrl : `http://localhost:8000${uploadUrl}`;
-  const response = await fetch(fullUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    },
-    body: formData
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    // Track upload progress
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(percentComplete);
+        }
+      });
+    }
+
+    xhr.addEventListener('load', () => {
+      console.log('Upload response status:', xhr.status);
+      console.log('Upload response ok:', xhr.status >= 200 && xhr.status < 300);
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.response);
+      } else {
+        console.error('Upload error response:', xhr.responseText);
+        reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Upload failed: Network error'));
+    });
+
+    xhr.open('POST', fullUrl);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.send(formData);
   });
-
-  console.log('Upload response status:', response.status);
-  console.log('Upload response ok:', response.ok);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Upload error response:', errorText);
-    throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
-  }
-
-  return response;
 };
 
 export const favoriteModel = async (modelId) => {

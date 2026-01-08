@@ -107,6 +107,8 @@ class JobResponse(BaseModel):
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime
+    progress: Optional[int] = None
+    progress_message: Optional[str] = None
 
     class Config:
         from_attributes = True

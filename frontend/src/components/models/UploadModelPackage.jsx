@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { createModelVersion, uploadToPresignedUrl, triggerBuild } from '../../api/models';
 import { Button } from '../common/Button';
+import { ProgressBar } from '../common/ProgressBar';
 
 export const UploadModelPackage = ({ modelId }) => {
   const [file, setFile] = useState(null);
   const [versionNumber, setVersionNumber] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
   const [showRequirements, setShowRequirements] = useState(false);
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ export const UploadModelPackage = ({ modelId }) => {
     }
 
     setIsUploading(true);
+    setUploadProgress(0);
     setError('');
 
     try {
@@ -40,9 +43,11 @@ export const UploadModelPackage = ({ modelId }) => {
       console.log('Version created:', version_id);
       console.log('Upload URL:', upload_url);
 
-      // Step 2: Upload file to presigned URL
+      // Step 2: Upload file to presigned URL with progress tracking
       console.log('Step 2: Uploading file to MinIO...');
-      await uploadToPresignedUrl(upload_url, file);
+      await uploadToPresignedUrl(upload_url, file, (progress) => {
+        setUploadProgress(Math.round(progress));
+      });
       console.log('Upload successful');
 
       // Step 3: Trigger build
@@ -58,6 +63,7 @@ export const UploadModelPackage = ({ modelId }) => {
       setError(errorMessage);
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -199,6 +205,15 @@ unzip -l model.zip`}
       {error && (
         <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg">
           {error}
+        </div>
+      )}
+
+      {isUploading && uploadProgress > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <ProgressBar
+            progress={uploadProgress}
+            message="Uploading model package..."
+          />
         </div>
       )}
 

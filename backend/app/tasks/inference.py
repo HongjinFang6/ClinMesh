@@ -30,6 +30,9 @@ def run_inference_task(self, job_id: str):
         job.status = JobStatus.RUNNING
         db.commit()
 
+        # Update progress: Starting
+        self.update_state(state='PROGRESS', meta={'current': 10, 'total': 100, 'status': 'Starting inference...'})
+
         logger.info(f"Starting inference for job {job_id}")
 
         version = job.version
@@ -77,6 +80,9 @@ def run_inference_task(self, job_id: str):
 
             logger.info(f"Downloading {len(input_paths)} input file(s)")
 
+            # Update progress: Downloading inputs
+            self.update_state(state='PROGRESS', meta={'current': 20, 'total': 100, 'status': 'Downloading input files...'})
+
             for idx, input_path in enumerate(input_paths):
                 input_ext = input_path.split('.')[-1]
                 if is_batch:
@@ -94,6 +100,9 @@ def run_inference_task(self, job_id: str):
             docker_client = docker.from_env()
             logger.info(f"Pulling image {version.docker_image}")
 
+            # Update progress: Pulling Docker image
+            self.update_state(state='PROGRESS', meta={'current': 40, 'total': 100, 'status': 'Preparing model...'})
+
             try:
                 docker_client.images.pull(version.docker_image)
             except docker.errors.ImageNotFound:
@@ -102,6 +111,9 @@ def run_inference_task(self, job_id: str):
 
             # Run container with resource limits and timeout
             logger.info(f"Running container {version.docker_image}")
+
+            # Update progress: Running inference
+            self.update_state(state='PROGRESS', meta={'current': 50, 'total': 100, 'status': 'Running inference...'})
 
             container = docker_client.containers.run(
                 version.docker_image,
@@ -151,6 +163,9 @@ def run_inference_task(self, job_id: str):
                 raise RuntimeError("No output files generated")
 
             logger.info(f"Output files generated: {output_files}")
+
+            # Update progress: Uploading results
+            self.update_state(state='PROGRESS', meta={'current': 80, 'total': 100, 'status': 'Uploading results...'})
 
             # Upload outputs to MinIO
             output_paths = []

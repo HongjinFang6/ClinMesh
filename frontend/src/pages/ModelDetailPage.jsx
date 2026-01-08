@@ -289,8 +289,8 @@ export const ModelDetailPage = () => {
           )}
         </div>
         <div className="flex space-x-3">
-          {/* Use Model button - show for unauthenticated users and authenticated non-owners on public models */}
-          {model.is_public && (!isAuthenticated || !isOwner) && (
+          {/* Use Model button - show for everyone on public models, and for owners on their own models */}
+          {(model.is_public || isOwner) && (
             <Button
               onClick={() => navigate(`/inference?modelId=${model.id}`)}
             >

@@ -73,7 +73,9 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
       }
 
       setBeforeImage(file);
-      alert('Before image uploaded successfully!');
+      alert('Before image uploaded successfully! The old image has been replaced.');
+      // Trigger a page reload or model refetch to show new image
+      window.location.reload();
     } catch (err) {
       setError('Failed to upload before image');
     } finally {
@@ -106,7 +108,9 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
       }
 
       setAfterImage(file);
-      alert('After image uploaded successfully!');
+      alert('After image uploaded successfully! The old image has been replaced.');
+      // Trigger a page reload or model refetch to show new image
+      window.location.reload();
     } catch (err) {
       setError('Failed to upload after image');
     } finally {

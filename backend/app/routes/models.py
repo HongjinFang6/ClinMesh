@@ -477,6 +477,14 @@ async def upload_before_image(
         raise HTTPException(status_code=403, detail="Only the model owner can upload demo images")
 
     try:
+        # Delete old image if it exists
+        if model.before_image_path:
+            try:
+                storage.delete_object(model.before_image_path)
+            except Exception as e:
+                # Log but don't fail if old image doesn't exist
+                print(f"Warning: Could not delete old before image: {e}")
+
         # Save file temporarily
         import tempfile
         import os
@@ -519,6 +527,14 @@ async def upload_after_image(
         raise HTTPException(status_code=403, detail="Only the model owner can upload demo images")
 
     try:
+        # Delete old image if it exists
+        if model.after_image_path:
+            try:
+                storage.delete_object(model.after_image_path)
+            except Exception as e:
+                # Log but don't fail if old image doesn't exist
+                print(f"Warning: Could not delete old after image: {e}")
+
         # Save file temporarily
         import tempfile
         import os

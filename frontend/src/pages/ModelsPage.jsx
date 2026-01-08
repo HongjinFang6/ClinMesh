@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getModels, createModel } from '../api/models';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 
 export const ModelsPage = () => {
+  const navigate = useNavigate();
   const [models, setModels] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -130,14 +131,72 @@ export const ModelsPage = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredModels.map(model => (
-            <Card key={model.id}>
-              <Link to={`/models/${model.id}`}>
-                <h3 className="text-xl font-semibold hover:text-primary-500 mb-2">{model.name}</h3>
-                <p className="text-gray-600 text-sm mb-4">{model.description || 'No description'}</p>
-                <span className={`text-xs px-2 py-1 rounded ${model.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                  {model.is_public ? 'Public' : 'Private'}
-                </span>
-              </Link>
+            <Card key={model.id} className="hover:shadow-lg transition-shadow">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                    {model.name}
+                  </h3>
+                </div>
+
+                <p className="text-gray-700 line-clamp-3">
+                  {model.description || 'No description available'}
+                </p>
+
+                {/* Before & After Demo Images */}
+                {(model.before_image_path || model.after_image_path) && (
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Demonstration:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {model.before_image_path && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Before</p>
+                          <img
+                            src={`http://localhost:8000/api/models/${model.id}/demo/before`}
+                            alt="Before"
+                            className="w-full h-24 object-cover rounded border border-gray-200"
+                          />
+                        </div>
+                      )}
+                      {model.after_image_path && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">After</p>
+                          <img
+                            src={`http://localhost:8000/api/models/${model.id}/demo/after`}
+                            alt="After"
+                            className="w-full h-24 object-cover rounded border border-gray-200"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span className={`px-2 py-1 rounded font-medium ${
+                    model.is_public ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {model.is_public ? 'Public' : 'Private'}
+                  </span>
+                  <span>
+                    {new Date(model.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 space-y-2">
+                  <Button
+                    onClick={() => navigate(`/inference?modelId=${model.id}`)}
+                    className="w-full"
+                  >
+                    Use This Model
+                  </Button>
+                  <Link to={`/models/${model.id}`} className="block">
+                    <Button variant="secondary" className="w-full">
+                      View Details
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </Card>
           ))}
         </div>

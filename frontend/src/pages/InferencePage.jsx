@@ -13,6 +13,7 @@ import { OutputViewer } from '../components/jobs/OutputViewer';
 import { MultiJobProgress } from '../components/jobs/MultiJobProgress';
 import { MultiJobResultsViewer } from '../components/jobs/MultiJobResultsViewer';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { ProgressBar } from '../components/common/ProgressBar';
 import { JobStatus } from '../utils/constants';
 
 export const InferencePage = () => {
@@ -410,11 +411,12 @@ export const InferencePage = () => {
         </Card>
       )}
 
-      {step >= 3 && (jobIds.length > 0 ? Object.keys(jobStatuses).length > 0 : job) && (
+      {step >= 3 && (
         <Card>
           <div className="space-y-4">
             {/* Individual mode - multiple jobs */}
-            {jobIds.length > 0 && Object.keys(jobStatuses).length > 0 ? (
+            {jobIds.length > 0 ? (
+              Object.keys(jobStatuses).length > 0 ? (
               <>
                 <h2 className="text-xl font-semibold">Inference Jobs ({jobIds.length} jobs)</h2>
 
@@ -434,8 +436,16 @@ export const InferencePage = () => {
                   />
                 )}
               </>
+              ) : (
+                /* Loading state for multiple jobs */
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
+                  <p className="mt-2 text-gray-600">Loading job status...</p>
+                </div>
+              )
             ) : (
               /* Single/Batch mode - single job */
+              job ? (
               <>
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-semibold">
@@ -446,12 +456,18 @@ export const InferencePage = () => {
 
                 {(job.status === JobStatus.QUEUED || job.status === JobStatus.RUNNING) && (
                   <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                    <p className="text-yellow-800">
+                    <p className="text-yellow-800 mb-4">
                       {selectedFiles.length > 1
                         ? `Processing batch of ${selectedFiles.length} images... This may take a moment.`
                         : 'Processing your image... This may take a moment.'
                       }
                     </p>
+                    {job.status === JobStatus.RUNNING && (job.progress || job.progress === 0) && (
+                      <ProgressBar
+                        progress={job.progress}
+                        message={job.progress_message || 'Running inference...'}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -465,6 +481,7 @@ export const InferencePage = () => {
                   <OutputViewer jobId={jobId} jobStatus={job.status} />
                 )}
               </>
+              ) : null
             )}
 
             <Button

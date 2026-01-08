@@ -30,8 +30,8 @@ class Settings(BaseSettings):
 
     # Container limits
     CONTAINER_CPU_LIMIT: str = "1"
-    CONTAINER_MEMORY_LIMIT: str = "2g"
-    CONTAINER_TIMEOUT: int = 60  # seconds
+    CONTAINER_MEMORY_LIMIT: str = "8g"  # Increased for large models like SAM
+    CONTAINER_TIMEOUT: int = 300  # 5 minutes (increased for CPU inference)
 
     # URLs
     PRESIGNED_URL_EXPIRY: int = 3600  # 1 hour
