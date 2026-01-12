@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, Boolean, Enum, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, Boolean, Enum, ForeignKey, Text, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -27,6 +27,26 @@ class UserRole(str, enum.Enum):
     DOCTOR = "DOCTOR"
 
 
+class ImagingModalityTag(str, enum.Enum):
+    MRI = "MRI"
+    EM = "EM"
+    CT = "CT"
+    ULTRASOUND = "Ultrasound"
+    FMRI = "fMRI"
+
+
+class OrganTag(str, enum.Enum):
+    HEART = "Heart"
+    BRAIN = "Brain"
+    KIDNEY = "Kidney"
+    LUNGS_CHEST = "Lungs/Chest"
+    BONES_JOINTS = "Bones & Joints"
+    ABDOMEN_DIGESTIVE = "Abdomen & Digestive Organs"
+    SPINE = "Spine"
+    EYES = "Eyes"
+    VASCULAR_SYSTEM = "Vascular System"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -51,6 +71,8 @@ class Model(Base):
     is_public = Column(Boolean, default=False, nullable=False)
     before_image_path = Column(String(500))  # MinIO path to before demo image
     after_image_path = Column(String(500))   # MinIO path to after demo image
+    imaging_modality_tags = Column(ARRAY(String), default=list, nullable=False)  # e.g., ["MRI", "CT"]
+    organ_tags = Column(ARRAY(String), default=list, nullable=False)  # e.g., ["Brain", "Heart"]
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     owner = relationship("User", back_populates="models")

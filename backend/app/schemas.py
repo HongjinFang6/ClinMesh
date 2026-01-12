@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
-from app.models import ModelVersionStatus, JobStatus, UserRole
+from app.models import ModelVersionStatus, JobStatus, UserRole, ImagingModalityTag, OrganTag
 
 
 # User schemas
@@ -24,6 +24,11 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -38,6 +43,8 @@ class ModelCreate(BaseModel):
     name: str
     description: Optional[str] = None
     is_public: bool = False
+    imaging_modality_tags: List[str] = []
+    organ_tags: List[str] = []
 
 
 class ModelResponse(BaseModel):
@@ -49,6 +56,8 @@ class ModelResponse(BaseModel):
     is_public: bool
     before_image_path: Optional[str] = None
     after_image_path: Optional[str] = None
+    imaging_modality_tags: List[str] = []
+    organ_tags: List[str] = []
     created_at: datetime
 
     class Config:

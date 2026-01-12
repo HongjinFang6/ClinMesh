@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_BUILD: str = "10 per hour"
     RATE_LIMIT_INFERENCE: str = "50 per hour"
     RATE_LIMIT_UPLOAD: str = "20 per hour"
+    RATE_LIMIT_JOB_STATUS: str = "1000 per hour"  # High limit for job status polling
 
     # File Upload Limits
     MAX_UPLOAD_SIZE_MB: int = 500

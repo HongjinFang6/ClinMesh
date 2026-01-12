@@ -58,6 +58,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """
         if "/build" in path:
             return self.parse_rate_limit(settings.RATE_LIMIT_BUILD)
+        elif "/jobs/" in path and "/run" not in path:
+            # Job status checking (GET /api/jobs/{job_id}) - high limit for polling
+            return self.parse_rate_limit(settings.RATE_LIMIT_JOB_STATUS)
         elif "/run" in path and "/jobs/" in path:
             return self.parse_rate_limit(settings.RATE_LIMIT_INFERENCE)
         elif "/upload" in path or "versions" in path:
@@ -68,6 +71,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip rate limiting if disabled or Redis unavailable
         if not self.enabled:
+            return await call_next(request)
+
+        # Skip rate limiting for CORS preflight
+        if request.method == "OPTIONS":
             return await call_next(request)
 
         # Skip rate limiting for health checks

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { POLLING_INTERVAL } from '../utils/constants';
 
 export const usePolling = (fetchFunction, shouldPoll, interval = POLLING_INTERVAL) => {
@@ -6,44 +6,92 @@ export const usePolling = (fetchFunction, shouldPoll, interval = POLLING_INTERVA
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const intervalRef = useRef(null);
+  const mountedRef = useRef(true);
+  const dataRef = useRef(null);
+  const isFetchingRef = useRef(false);
+  const blockedUntilRef = useRef(0);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const result = await fetchFunction();
+  // Stable reference to fetch function
+  const fetchData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    if (Date.now() < blockedUntilRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const result = await fetchFunction();
+      if (mountedRef.current) {
         setData(result);
+        dataRef.current = result;
         setError(null);
-      } catch (err) {
-        setError(err);
-      } finally {
         setIsLoading(false);
       }
-    };
+    } catch (err) {
+      if (mountedRef.current) {
+        if (err?.response?.status === 429) {
+          const retryAfterHeader = err.response?.headers?.['retry-after'];
+          const retryAfterSeconds = Number(retryAfterHeader ?? err.response?.data?.retry_after ?? 0);
+          const delayMs = Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+            ? retryAfterSeconds * 1000
+            : interval;
+          blockedUntilRef.current = Date.now() + delayMs;
+          if (!dataRef.current) {
+            setError(err);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        setError(err);
+        setIsLoading(false);
+      }
+    } finally {
+      isFetchingRef.current = false;
+    }
+  }, [fetchFunction, interval]);
+
+  useEffect(() => {
+    mountedRef.current = true;
 
     // Initial fetch
     fetchData();
 
-    // Setup polling if needed
-    if (data && shouldPoll(data)) {
-      intervalRef.current = setInterval(fetchData, interval);
-    } else {
+    // Cleanup
+    return () => {
+      mountedRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+    };
+  }, [fetchData]);
+
+  // Separate effect for polling logic
+  useEffect(() => {
+    // Clear any existing interval
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
     }
 
-    // Cleanup
+    // Setup polling if data exists and should poll
+    if (data && shouldPoll(data)) {
+      intervalRef.current = setInterval(fetchData, interval);
+    }
+
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [fetchFunction, shouldPoll, interval, data?.status]); // Add data?.status as dependency
+  }, [data, shouldPoll, interval, fetchData]);
 
   const refetch = async () => {
+    blockedUntilRef.current = 0;
     const result = await fetchFunction();
-    setData(result);
+    if (mountedRef.current) {
+      setData(result);
+      dataRef.current = result;
+    }
     return result;
   };
 

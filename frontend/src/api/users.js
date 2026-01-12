@@ -6,8 +6,9 @@ export const register = async (userData) => {
 };
 
 export const login = async (username, password) => {
-  const response = await apiClient.post('/api/users/login', null, {
-    params: { username, password }
+  const response = await apiClient.post('/api/users/login', {
+    username,
+    password
   });
   return response.data;
 };

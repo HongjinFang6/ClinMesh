@@ -27,6 +27,8 @@ async def create_model(
         name=model_data.name,
         description=model_data.description,
         is_public=model_data.is_public,
+        imaging_modality_tags=model_data.imaging_modality_tags,
+        organ_tags=model_data.organ_tags,
         owner_id=current_user.id
     )
     db.add(new_model)
@@ -38,6 +40,8 @@ async def create_model(
 @router.get("/", response_model=List[ModelResponse])
 async def list_models(
     public_only: bool = False,
+    imaging_modality_tags: Optional[str] = None,
+    organ_tags: Optional[str] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -45,6 +49,7 @@ async def list_models(
     List models:
     - If public_only=True: Return all public models (from any user) - no auth required
     - If public_only=False: Return only current user's models (public and private) - requires auth
+    - Optional tag filters (comma-separated): imaging_modality_tags, organ_tags
     """
     query = db.query(Model)
     if public_only:
@@ -59,6 +64,19 @@ async def list_models(
             )
         query = query.filter(Model.owner_id == current_user.id)
 
+    # Apply tag filters - models must contain ALL selected tags
+    if imaging_modality_tags:
+        modality_list = [tag.strip() for tag in imaging_modality_tags.split(',')]
+        # Filter models that contain ALL of the specified imaging modality tags
+        for tag in modality_list:
+            query = query.filter(Model.imaging_modality_tags.any(tag))
+
+    if organ_tags:
+        organ_list = [tag.strip() for tag in organ_tags.split(',')]
+        # Filter models that contain ALL of the specified organ tags
+        for tag in organ_list:
+            query = query.filter(Model.organ_tags.any(tag))
+
     models = query.all()
 
     # Add owner username to each model
@@ -70,6 +88,10 @@ async def list_models(
             "description": model.description,
             "owner_id": model.owner_id,
             "is_public": model.is_public,
+            "before_image_path": model.before_image_path,
+            "after_image_path": model.after_image_path,
+            "imaging_modality_tags": model.imaging_modality_tags or [],
+            "organ_tags": model.organ_tags or [],
             "created_at": model.created_at,
             "owner_username": None
         }
@@ -270,6 +292,10 @@ async def list_favorite_models(
             "description": model.description,
             "owner_id": model.owner_id,
             "is_public": model.is_public,
+            "before_image_path": model.before_image_path,
+            "after_image_path": model.after_image_path,
+            "imaging_modality_tags": model.imaging_modality_tags or [],
+            "organ_tags": model.organ_tags or [],
             "created_at": model.created_at,
             "owner_username": None
         }
@@ -327,6 +353,8 @@ async def update_model(
     model.name = model_data.name
     model.description = model_data.description
     model.is_public = model_data.is_public
+    model.imaging_modality_tags = model_data.imaging_modality_tags
+    model.organ_tags = model_data.organ_tags
 
     db.commit()
     db.refresh(model)
@@ -378,6 +406,8 @@ async def copy_model(
         name=f"{original_model.name} (Copy)",
         description=f"Copied from {original_model.name}. Original description: {original_model.description or 'None'}",
         is_public=False,  # Copies are private by default
+        imaging_modality_tags=original_model.imaging_modality_tags or [],
+        organ_tags=original_model.organ_tags or [],
         owner_id=current_user.id
     )
     db.add(new_model)

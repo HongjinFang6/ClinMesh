@@ -276,7 +276,7 @@ export const ModelDetailPage = () => {
     <div className="space-y-6">
       {/* Model Header */}
       <div className="flex justify-between items-start">
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold">{model.name}</h1>
           <p className="text-gray-600 mt-2">{model.description || 'No description'}</p>
           {model.owner_username && (
@@ -285,6 +285,36 @@ export const ModelDetailPage = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               <span>by {model.owner_username}</span>
+            </div>
+          )}
+
+          {/* Tags */}
+          {(model.imaging_modality_tags?.length > 0 || model.organ_tags?.length > 0) && (
+            <div className="mt-4 space-y-3">
+              {model.imaging_modality_tags?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Imaging Modality:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {model.imaging_modality_tags.map(tag => (
+                      <span key={tag} className="px-3 py-1 bg-primary-100 text-primary-700 text-sm rounded-full font-medium">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {model.organ_tags?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Organ / Body Part:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {model.organ_tags.map(tag => (
+                      <span key={tag} className="px-3 py-1 bg-secondary-100 text-secondary-700 text-sm rounded-full font-medium">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

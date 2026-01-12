@@ -2,13 +2,17 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { updateModel, deleteModel } from '../../api/models';
 import { Button } from '../common/Button';
+import { TagSelector } from './TagSelector';
+import { IMAGING_MODALITY_TAGS, ORGAN_TAGS } from '../../constants/tags';
 
 export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: model.name,
     description: model.description || '',
-    is_public: model.is_public
+    is_public: model.is_public,
+    imaging_modality_tags: model.imaging_modality_tags || [],
+    organ_tags: model.organ_tags || []
   });
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -181,6 +185,20 @@ export const ModelSettingsModal = ({ model, onClose, onUpdate }) => {
                     Make this model public
                   </label>
                 </div>
+
+                <TagSelector
+                  label="Imaging Modality (select all that apply)"
+                  tags={IMAGING_MODALITY_TAGS}
+                  selectedTags={formData.imaging_modality_tags}
+                  onChange={(tags) => setFormData({ ...formData, imaging_modality_tags: tags })}
+                />
+
+                <TagSelector
+                  label="Organ / Body Part (select all that apply)"
+                  tags={ORGAN_TAGS}
+                  selectedTags={formData.organ_tags}
+                  onChange={(tags) => setFormData({ ...formData, organ_tags: tags })}
+                />
 
                 <div className="border-t border-gray-200 pt-4">
                   <h3 className="text-lg font-semibold mb-3">Demo Images (Before & After)</h3>

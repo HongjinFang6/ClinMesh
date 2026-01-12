@@ -15,4 +15,4 @@ export const JobStatus = {
   FAILED: 'FAILED'
 };
 
-export const POLLING_INTERVAL = 3000; // 3 seconds
+export const POLLING_INTERVAL = 5000; // 5 seconds (increased to avoid rate limiting)

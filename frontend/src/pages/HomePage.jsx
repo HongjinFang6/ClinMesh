@@ -55,6 +55,7 @@ export const HomePage = () => {
   }
 
   const successfulJobs = recentJobs.filter(j => j.status === 'SUCCEEDED').length;
+  const displayModels = isAuthenticated && favorites.length > 0 ? favorites : publicModels;
 
   return (
     <div className="space-y-8">
@@ -166,30 +167,137 @@ export const HomePage = () => {
             View All
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {(isAuthenticated && favorites.length > 0 ? favorites : publicModels).map(model => (
-            <Card key={model.id} className="hover:shadow-lg transition-shadow">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">{model.name}</h3>
-              <p className="text-sm text-gray-600 mb-3">by {model.owner_username || 'Unknown'}</p>
-              <p className="text-gray-700 mb-4 line-clamp-2">{model.description || 'No description'}</p>
-              <div className="space-y-2">
-                <Button
-                  onClick={() => navigate(`/inference?modelId=${model.id}`)}
-                  className="w-full"
-                >
-                  Use Model
-                </Button>
-                <Button
-                  onClick={() => navigate(`/models/${model.id}`)}
-                  variant="secondary"
-                  className="w-full"
-                >
-                  View Details
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+        {displayModels.length === 0 ? (
+          <Card>
+            <div className="text-center py-12">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                />
+              </svg>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                No models available yet
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Check back soon for new model releases.
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayModels.map(model => (
+              <Card key={model.id} className="hover:shadow-lg transition-shadow">
+                <div className="space-y-4">
+                  {(model.before_image_path || model.after_image_path) && (
+                    <div className="grid grid-cols-2 gap-2 -mx-6 -mt-6 mb-2">
+                      {model.before_image_path && (
+                        <div className="relative">
+                          <img
+                            src={`http://localhost:8000/api/models/${model.id}/demo/before`}
+                            alt="Before"
+                            className="w-full h-32 object-cover rounded-tl-lg"
+                          />
+                          <span className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                            Before
+                          </span>
+                        </div>
+                      )}
+                      {model.after_image_path && (
+                        <div className="relative">
+                          <img
+                            src={`http://localhost:8000/api/models/${model.id}/demo/after`}
+                            alt="After"
+                            className={`w-full h-32 object-cover ${!model.before_image_path ? 'rounded-t-lg' : 'rounded-tr-lg'}`}
+                          />
+                          <span className="absolute top-2 left-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                            After
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-1">
+                      {model.name}
+                    </h3>
+                    {model.owner_username && (
+                      <p className="text-sm text-gray-600">
+                        by {model.owner_username}
+                      </p>
+                    )}
+                  </div>
+
+                  <p className="text-gray-700 line-clamp-3">
+                    {model.description || 'No description available'}
+                  </p>
+
+                  {(model.imaging_modality_tags?.length > 0 || model.organ_tags?.length > 0) && (
+                    <div className="space-y-2">
+                      {model.imaging_modality_tags?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Imaging Modality:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {model.imaging_modality_tags.map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-primary-100 text-primary-700 text-xs rounded-full font-medium">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {model.organ_tags?.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-1">Organ / Body Part:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {model.organ_tags.map(tag => (
+                              <span key={tag} className="px-2 py-0.5 bg-secondary-100 text-secondary-700 text-xs rounded-full font-medium">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-xs text-gray-500">
+                    <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-medium">
+                      Public
+                    </span>
+                    <span>
+                      {new Date(model.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-gray-200 space-y-2">
+                    <Button
+                      onClick={() => navigate(`/inference?modelId=${model.id}`)}
+                      className="w-full"
+                    >
+                      Use This Model
+                    </Button>
+                    <Button
+                      onClick={() => navigate(`/models/${model.id}`)}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      View Details
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recent Jobs - Only show if authenticated */}

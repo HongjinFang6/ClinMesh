@@ -31,7 +31,7 @@ export const JobsPage = () => {
       <div className="space-y-4">
         {jobs.map(job => (
           <Card key={job.id}>
-            <Link to={`/jobs/${job.id}`}>
+            <Link to={`/jobs/${job.id}`} state={{ job }}>
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold text-lg">

@@ -6,8 +6,12 @@ export const createModel = async (modelData) => {
   return response.data;
 };
 
-export const getModels = async (publicOnly = false) => {
-  const params = publicOnly ? { public_only: true } : {};
+export const getModels = async (filters = {}) => {
+  // Handle both old publicOnly boolean parameter and new filters object
+  const params = typeof filters === 'boolean'
+    ? (filters ? { public_only: true } : {})
+    : { ...filters };
+
   const response = await apiClient.get('/api/models/', { params });
   return response.data;
 };
